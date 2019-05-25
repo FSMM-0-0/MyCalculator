@@ -5,9 +5,11 @@ option casemap :none
 include		user32.inc
 include		windows.inc
 include		kernel32.inc
+include		gdi32.inc
 includelib	kernel32.lib
 includelib	user32.lib
 includelib	msvcrt.lib
+includelib	gdi32.lib
 
 WinMain	PROTO	:dword, :dword, :dword, :dword
 strcat	PROTO C :ptr sbyte, :ptr sbyte
@@ -82,11 +84,13 @@ Fact			PROTO	stdcall:dword
 	miMsg				db	"^", 0
 	negMsg				db	"-", 0
 	negbuf				db	512 dup(?)
+	FontName			db	"Consolas", 0
 
 	hInstance	HINSTANCE	?					;句柄
 	CommandLine	LPSTR		?
 	hwndButton	HWND		?
 	hwndEdit	HWND		?
+	OldWndProc	dd			?
 	buffer		db			512 dup(?)			;表达式
 	num			dword		?					;阶乘数
 
@@ -188,350 +192,478 @@ WinMain		proc	hInst:HINSTANCE,hPrevInst:HINSTANCE,CmdLine:LPSTR,CmdShow:DWORD
 WinMain	endp
 ;#endregion
 
-WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM 
+WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
+	LOCAL hfont:HFONT
 
-		.if uMsg==WM_DESTROY                    ; closes window 
-			invoke PostQuitMessage,NULL         ; quit application 
-		.elseif uMsg==WM_CREATE
-			invoke CreateWindowEx,WS_EX_CLIENTEDGE, ADDR EditClassName,NULL,\
-							WS_CHILD or WS_VISIBLE or WS_BORDER or ES_LEFT or\
-							ES_AUTOHSCROLL,\
-							25,35,400,100,hWnd,EditID,hInstance,NULL
-			mov  hwndEdit,eax
-			invoke SetFocus, hwndEdit
-			;createbutton #region
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonleft,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,460,88,50,hWnd,ButtonIDleft,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonright,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,460,88,50,hWnd,ButtonIDright,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button0,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,460,88,50,hWnd,ButtonID0,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttondot,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,460,88,50,hWnd,ButtonIDdot,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonequ,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,460,88,50,hWnd,ButtonIDequ,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonarc,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,410,88,50,hWnd,ButtonIDarc,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button1,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,410,88,50,hWnd,ButtonID1,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button2,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,410,88,50,hWnd,ButtonID2,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button3,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,410,88,50,hWnd,ButtonID3,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonadd,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,410,88,50,hWnd,ButtonIDadd,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttontan,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,360,88,50,hWnd,ButtonIDtan,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button4,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,360,88,50,hWnd,ButtonID4,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button5,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,360,88,50,hWnd,ButtonID5,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button6,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,360,88,50,hWnd,ButtonID6,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonsub,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,360,88,50,hWnd,ButtonIDsub,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttoncos,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,310,88,50,hWnd,ButtonIDcos,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button7,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,310,88,50,hWnd,ButtonID7,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button8,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,310,88,50,hWnd,ButtonID8,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button9,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,310,88,50,hWnd,ButtonID9,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmul,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,310,88,50,hWnd,ButtonIDmul,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonsin,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,260,88,50,hWnd,ButtonIDsin,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonpi,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,260,88,50,hWnd,ButtonIDpi,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonfac,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,260,88,50,hWnd,ButtonIDfac,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmod,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,260,88,50,hWnd,ButtonIDmod,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttondiv,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,260,88,50,hWnd,ButtonIDdiv,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button2x,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,210,88,50,hWnd,ButtonID2x,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonsqrt,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,210,88,50,hWnd,ButtonIDsqrt,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonlog,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,210,88,50,hWnd,ButtonIDlog,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonce,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,210,88,50,hWnd,ButtonIDce,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttondel,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,210,88,50,hWnd,ButtonIDdel,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonneg,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							1,160,88,50,hWnd,ButtonIDneg,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttone,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							89,160,88,50,hWnd,ButtonIDe,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmadd,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							177,160,88,50,hWnd,ButtonIDmadd,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmsub,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							265,160,88,50,hWnd,ButtonIDmsub,hInstance,NULL
-			invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonms,\
-							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
-							353,160,88,50,hWnd,ButtonIDms,hInstance,NULL
-			;#endregion
-		.elseif	uMsg==WM_COMMAND
-			mov	eax,wParam
-			.if	lParam==0
-				.if ax==IDM_GETTEXT
-					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-					invoke	MessageBox,NULL,ADDR buffer,ADDR AppName,MB_OK
-				.else
-					invoke	DestroyWindow,hWnd
-				.endif
+	.if uMsg==WM_DESTROY                    ; closes window 
+		invoke PostQuitMessage,NULL         ; quit application 
+	.elseif uMsg==WM_CREATE
+		invoke CreateWindowEx,WS_EX_CLIENTEDGE, ADDR EditClassName,NULL,\
+						WS_CHILD or WS_VISIBLE or WS_BORDER or ES_RIGHT or ES_MULTILINE or\
+						ES_AUTOVSCROLL,\
+						25,35,400,100,hWnd,EditID,hInstance,NULL
+		mov  hwndEdit,eax
+		invoke SetFocus, hwndEdit
+		invoke SetWindowLong,hwndEdit,GWL_WNDPROC,addr EditWndProc
+		mov OldWndProc,eax
+
+		;edit字体
+		invoke CreateFont,45,0,0,0,FW_NORMAL,0,0,0,ANSI_CHARSET,\
+                    OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,\
+                    DEFAULT_QUALITY,DEFAULT_PITCH or FF_SCRIPT,\
+                    ADDR FontName
+		mov	hfont,eax
+		invoke	SendMessage, hwndEdit, WM_SETFONT, hfont, 1
+		;button字体
+		invoke CreateFont,25,0,0,0,FW_EXTRABOLD,0,0,0,ANSI_CHARSET,\
+                    OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,\
+                    DEFAULT_QUALITY,DEFAULT_PITCH or FF_SCRIPT,\
+                    ADDR FontName	
+		mov	hfont,eax
+
+		;createbutton #region
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonleft,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,460,88,50,hWnd,ButtonIDleft,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonright,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,460,88,50,hWnd,ButtonIDright,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button0,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,460,88,50,hWnd,ButtonID0,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttondot,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,460,88,50,hWnd,ButtonIDdot,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonequ,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,460,88,50,hWnd,ButtonIDequ,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonarc,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,410,88,50,hWnd,ButtonIDarc,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button1,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,410,88,50,hWnd,ButtonID1,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button2,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,410,88,50,hWnd,ButtonID2,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button3,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,410,88,50,hWnd,ButtonID3,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonadd,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,410,88,50,hWnd,ButtonIDadd,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttontan,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,360,88,50,hWnd,ButtonIDtan,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button4,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,360,88,50,hWnd,ButtonID4,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button5,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,360,88,50,hWnd,ButtonID5,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button6,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,360,88,50,hWnd,ButtonID6,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonsub,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,360,88,50,hWnd,ButtonIDsub,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttoncos,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,310,88,50,hWnd,ButtonIDcos,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button7,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,310,88,50,hWnd,ButtonID7,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button8,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,310,88,50,hWnd,ButtonID8,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button9,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,310,88,50,hWnd,ButtonID9,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmul,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,310,88,50,hWnd,ButtonIDmul,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonsin,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,260,88,50,hWnd,ButtonIDsin,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonpi,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,260,88,50,hWnd,ButtonIDpi,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonfac,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,260,88,50,hWnd,ButtonIDfac,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmod,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,260,88,50,hWnd,ButtonIDmod,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttondiv,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,260,88,50,hWnd,ButtonIDdiv,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Button2x,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,210,88,50,hWnd,ButtonID2x,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonsqrt,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,210,88,50,hWnd,ButtonIDsqrt,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonlog,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,210,88,50,hWnd,ButtonIDlog,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonce,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,210,88,50,hWnd,ButtonIDce,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttondel,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,210,88,50,hWnd,ButtonIDdel,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonneg,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						1,160,88,50,hWnd,ButtonIDneg,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttone,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						89,160,88,50,hWnd,ButtonIDe,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmadd,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						177,160,88,50,hWnd,ButtonIDmadd,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonmsub,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						265,160,88,50,hWnd,ButtonIDmsub,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		invoke CreateWindowEx,NULL, ADDR ButtonClassName,ADDR Buttonms,\
+						WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
+						353,160,88,50,hWnd,ButtonIDms,hInstance,NULL
+		mov  hwndButton,eax
+		invoke	SendMessage, hwndButton, WM_SETFONT, hfont, 1
+		;#endregion
+	.elseif	uMsg==WM_COMMAND
+		mov	eax,wParam
+		.if	lParam==0
+			.if ax==IDM_GETTEXT
+				invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+				invoke	MessageBox,NULL,ADDR buffer,ADDR AppName,MB_OK
 			.else
-				;button control #region
-				;显示按钮 
-				.if	ax==ButtonID0
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button0
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID1
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button1
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID2
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button2
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID3
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button3
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID4
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button4
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID5
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button5
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID6
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button6
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID7
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button7
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID8
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button8
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID9
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Button9
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDleft
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonleft
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDright
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonright
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDdot
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttondot
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDadd
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonadd
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDsub
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonsub
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDmul
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonmul
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDdiv
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttondiv
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDmod
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonmod
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDpi
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset piMsg
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDe
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset eMsg
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonID2x
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset miMsg
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDce
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	SetWindowText,hwndEdit, NULL
-					.endif
-				.elseif ax==ButtonIDdel
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strlen, offset buffer
-						mov	buffer[eax - 1], 0
-						invoke	SetWindowText,hwndEdit, ADDR buffer
-					.endif
-				.elseif ax==ButtonIDneg
-					shr	eax,16
-					.if	ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	sprintf, offset negbuf, offset negFmt, offset negMsg, offset buffer
-						invoke	SetWindowText,hwndEdit, ADDR negbuf
-					.endif					
-				;求解按钮
-				.elseif ax==ButtonIDequ || ax==ButtonIDsin || ax==ButtonIDcos || \
-						ax==ButtonIDtan || ax==ButtonIDarc || ax==ButtonIDsqrt || \
-						ax==ButtonIDlog || ax==ButtonIDfac
-					mov bx, ax
-					shr eax,16
-					.if ax==BN_CLICKED
-						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	Expression ;求解函数	
+				invoke	DestroyWindow,hWnd
+			.endif
+		.else
+			;button control #region
+			;显示按钮 
+			.if	ax==ButtonID0
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button0
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID1
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button1
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID2
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button2
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID3
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button3
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID4
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button4
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID5
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button5
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID6
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button6
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID7
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button7
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID8
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button8
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID9
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Button9
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDleft
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttonleft
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDright
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttonright
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDdot
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttondot
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDadd
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttonadd
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDsub
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttonsub
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDmul
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttonmul
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDdiv
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttondiv
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDmod
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset Buttonmod
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDpi
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset piMsg
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDe
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset eMsg
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonID2x
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strcat, offset buffer, offset miMsg
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDce
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	SetWindowText,hwndEdit, NULL
+				.endif
+			.elseif ax==ButtonIDdel
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	strlen, offset buffer
+					mov	buffer[eax - 1], 0
+					invoke	SetWindowText,hwndEdit, ADDR buffer
+				.endif
+			.elseif ax==ButtonIDneg
+				shr	eax,16
+				.if	ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	sprintf, offset negbuf, offset negFmt, offset negMsg, offset buffer
+					invoke	SetWindowText,hwndEdit, ADDR negbuf
+				.endif					
+			;求解按钮
+			.elseif ax==ButtonIDequ || ax==ButtonIDsin || ax==ButtonIDcos || \
+					ax==ButtonIDtan || ax==ButtonIDarc || ax==ButtonIDsqrt || \
+					ax==ButtonIDlog || ax==ButtonIDfac
+				mov bx, ax
+				shr eax,16
+				.if ax==BN_CLICKED
+					invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+					invoke	Expression ;求解函数	
 						
-						.if flag == 1 ;error
-							invoke	SetWindowText, hwndEdit, ADDR errMsg
-						.elseif flag == 2 ;div 0
-							invoke	SetWindowText, hwndEdit, ADDR div0Msg
-						.else ;answer
-							.if	bx==ButtonIDsin ;sin
-								invoke	SinFloat, answer
-							.elseif bx==ButtonIDcos ;cos
-								invoke	CosFloat, answer
-							.elseif	bx==ButtonIDtan ;tan
-								invoke	TanFloat, answer
-							.elseif bx==ButtonIDarc ;arctan
-								invoke	Arctan, answer
-							.elseif	bx==ButtonIDsqrt ;sqrt
-								invoke	Sqrt, answer
-							.elseif	bx==ButtonIDlog ;log10
-								invoke	Log, answer
-							.elseif bx==ButtonIDfac ;fact
-								invoke	sprintf, offset buffer, offset outFmt, answer
-								invoke	sscanf, offset buffer, offset numFmt, offset num
-								invoke	Fact, num
-								mov	num, eax
-								invoke	sprintf, offset buffer, offset numFmt, num
-								invoke	sscanf, offset buffer, offset outfFmt, offset answer
-							.endif
+					.if flag == 1 ;error
+						invoke	SetWindowText, hwndEdit, ADDR errMsg
+					.elseif flag == 2 ;div 0
+						invoke	SetWindowText, hwndEdit, ADDR div0Msg
+					.else ;answer
+						.if	bx==ButtonIDsin ;sin
+							invoke	SinFloat, answer
+						.elseif bx==ButtonIDcos ;cos
+							invoke	CosFloat, answer
+						.elseif	bx==ButtonIDtan ;tan
+							invoke	TanFloat, answer
+						.elseif bx==ButtonIDarc ;arctan
+							invoke	Arctan, answer
+						.elseif	bx==ButtonIDsqrt ;sqrt
+							invoke	Sqrt, answer
+						.elseif	bx==ButtonIDlog ;log10
+							invoke	Log, answer
+						.elseif bx==ButtonIDfac ;fact
 							invoke	sprintf, offset buffer, offset outFmt, answer
-							invoke	SetWindowText, hwndEdit, ADDR buffer
+							invoke	sscanf, offset buffer, offset numFmt, offset num
+							invoke	Fact, num
+							mov	num, eax
+							invoke	sprintf, offset buffer, offset numFmt, num
+							invoke	sscanf, offset buffer, offset outfFmt, offset answer
 						.endif
+						invoke	sprintf, offset buffer, offset outFmt, answer
+						invoke	SetWindowText, hwndEdit, ADDR buffer
 					.endif
 				.endif
-				;#endregion
 			.endif
-		.else 
-			invoke DefWindowProc,hWnd,uMsg,wParam,lParam     ; Default message processing 
-			ret 
-		.endif 
-		xor eax,eax 
+			;#endregion
+		.endif
+	.else 
+		invoke DefWindowProc,hWnd,uMsg,wParam,lParam     ; Default message processing 
 		ret 
+	.endif 
+	xor eax,eax 
+	ret 
 WndProc endp
+
+;输入框键盘响应
+EditWndProc PROC hEdit:DWORD,uMsg:DWORD,wParam:DWORD,lParam:DWORD
+	.if uMsg==WM_CHAR
+		mov eax,wParam
+		.if (al>="0" && al<="9") || al=="+" || al=="-" || al=="*" || al=="/" || \
+			al=="%" || al=="." || al=="(" || al==")" || al=="^" 
+			invoke CallWindowProc,OldWndProc,hEdit,uMsg,eax,lParam
+			ret
+		.endif
+	.elseif uMsg==WM_KEYDOWN
+		mov eax,wParam
+		.if al==VK_RETURN
+			invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+			invoke	Expression
+			.if flag == 1
+				invoke	SetWindowText, hwndEdit, ADDR errMsg
+			.elseif flag == 2 
+				invoke	SetWindowText, hwndEdit, ADDR div0Msg
+			.else
+				invoke	sprintf, offset buffer, offset outFmt, answer
+				invoke	SetWindowText, hwndEdit, ADDR buffer
+			.endif
+			invoke SetFocus,hEdit
+		.elseif al==VK_BACK || al==VK_DELETE
+			invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+			invoke	strlen, offset buffer
+			mov	buffer[eax - 1], 0
+			invoke	SetWindowText,hwndEdit, ADDR buffer			
+		.else
+			invoke CallWindowProc,OldWndProc,hEdit,uMsg,wParam,lParam
+			ret
+		.endif
+	.else
+		invoke CallWindowProc,OldWndProc,hEdit,uMsg,wParam,lParam
+		ret
+	.endif
+	xor eax,eax
+	ret
+EditWndProc endp
 		end
