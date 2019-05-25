@@ -6,14 +6,17 @@ includelib	msvcrt.lib
 
 strlen	PROTO C :ptr sbyte
 printf	PROTO C :dword, :vararg
+sprintf	PROTO C :ptr sbyte, :vararg
+sscanf	PROTO C :ptr sbyte, :vararg
+fmod	PROTO C :real8, :real8
+pow		PROTO C :real8, :real8
 
-AddInteger		PROTO	stdcall:dword, :dword
-SubInteger		PROTO	stdcall:dword, :dword
-MulInteger		PROTO	stdcall:dword, :dword
-DivInteger		PROTO	stdcall:dword, :dword
-ModInteger		PROTO	stdcall:dword, :dword
+AddFloat		PROTO	stdcall:real8, :real8
+SubFloat		PROTO	stdcall:real8, :real8
+MulFloat		PROTO	stdcall:real8, :real8
+DivFloat		PROTO	stdcall:real8, :real8
 Bracket			PROTO	stdcall
-Cal				PROTO	stdcall:dword, :byte, :dword
+Cal				PROTO	stdcall:real8, :byte, :real8
 Operator		PROTO	stdcall:byte
 Chpriority	    PROTO	stdcall:byte
 Calfun			PROTO	stdcall
@@ -23,26 +26,34 @@ Finish			PROTO	stdcall
 public  Expression
 public	flag
 public	answer
-extern	result:dword
+public	fresult
+public	result
 extern	buffer:byte
 
 .data
-	op		byte	512 dup(?) ;运算符栈
-	optop	dword	0
-	num		dword	512 dup(0) ;数字栈
-	numtop	dword	0
-	dig		dword	0 ;是否数字
-	x		dword	0 ;当前数字
-	ans		dword	0 ;中间结果
-	flag	dword	0 ;结果类型
-	sec		dword	0 ;操作数
-	fir		dword	0 ;操作数
-	ls		dword	? ;字符串长度
+	op			byte	512 dup(?) ;运算符栈
+	optop		dword	0
+	num			real8	512 dup(?) ;数字栈
+	numtop		dword	0
+	dig			dword	0 ;是否数字
+	sign		dword	0 ;是否为负s
+	tmpx		byte	512 dup(0) ;当前数字
+	x			real8	? ;当前数字
+	ans			real8	? ;中间结果
+	flag		dword	0 ;结果类型
+	sec			real8	? ;操作数
+	fir			real8	? ;操作数
+	ls			dword	? ;字符串长度
 	priority	dword	? ;优先级1
-	answer	dword	? ;最终结果
-	errFmt	byte	'error', 0ah, 0
-	div0Fmt byte	'Divide 0', 0ah, 0
-	outFmt  byte	'%d', 0ah, 0
+	answer		real8	? ;最终结果
+	errFmt		byte	'error', 0ah, 0
+	div0Fmt		byte	'Divide 0', 0ah, 0
+	outFmt		byte	'%d', 0ah, 0
+	finFmt		byte    '%lf', 0
+	catFmt		byte	'%s%c', 0
+	float0		real8	0.0
+	fresult		real8	? ;计算值
+	result		dword	? ;计算值
 .code
 
 ;表达式计算
@@ -52,25 +63,29 @@ Expression	proc	stdcall
 			push	edi
 
 			;step1: 初始化
+			finit
 			xor		eax, eax
-			mov		x, eax
 			mov		numtop, eax
 			mov		optop, eax
 			mov		dig, eax
 			mov		flag, eax
+			mov		sign, eax
 
 			;step2: 遍历
 			invoke	strlen, offset buffer
 			mov	ls, eax
 			xor		esi, esi
 			.while	esi < ls
+				;负数
+				.if	buffer[esi] == '-' && (esi == 0 || \
+					buffer[esi - 1] == '+' || buffer[esi - 1] == '-' || \
+					buffer[esi - 1] == '*' || buffer[esi - 1] == '/' || \
+					buffer[esi - 1] == '^' || buffer[esi - 1] == '%' || \
+					buffer[esi - 1] == '(')
+					mov		sign, 1
 				;当前数
-				.if	buffer[esi] >= '0' && buffer[esi] <= '9'
-					invoke	MulInteger, x, 10
-					invoke	AddInteger, result, buffer[esi]
-					invoke	SubInteger, result, '0'
-					mov		eax, result
-					mov		x, eax
+				.elseif	(buffer[esi] >= '0' && buffer[esi] <= '9') || buffer[esi] == '.'
+					invoke	sprintf, offset tmpx, offset catFmt, offset tmpx, buffer[esi]
 					mov		eax, 1
 					mov		dig, eax
 				;操作符
@@ -81,13 +96,19 @@ Expression	proc	stdcall
 						.break
 					.endif
 					.if	dig != 0 ;数字进栈
+						invoke	sscanf, offset tmpx, offset finFmt, offset x
+						mov tmpx[0], 0
+
 						inc	numtop
 						mov	edi, numtop
-						mov	eax, x
-						mov num[edi * 4], eax
+						fld	x
+						.if sign != 0 
+							fchs ;负数
+							mov sign, 0
+						.endif
+						fst num[edi * 8]
 						xor eax, eax
 						mov dig, eax
-						mov x, eax
 					.endif
 					.if	buffer[esi] == '(' || optop == 0 || buffer[esi] == '^'
 						inc optop
@@ -113,10 +134,17 @@ Expression	proc	stdcall
 			.endw
 
 			.if dig != 0
+				invoke	sscanf, offset tmpx, offset finFmt, offset x
+				mov tmpx[0], 0
+
 				inc	numtop
 				mov	edi, numtop
-				mov	eax, x
-				mov num[edi * 4], eax
+				fld	x
+				.if sign != 0 
+					fchs ;负数
+					mov sign, 0
+				.endif
+				fst num[edi * 8]
 				xor eax, eax
 				mov dig, eax
 			.endif
@@ -126,8 +154,8 @@ Expression	proc	stdcall
 
 			.if flag != 1 && flag != 2
 				mov eax, numtop
-				mov	edi, num[eax * 4]
-				mov answer, edi
+				fld	num[eax * 8]
+				fst answer
 				;invoke	printf, offset outFmt, num[eax * 4]
 			.endif
 
@@ -163,51 +191,58 @@ Bracket		proc	stdcall
 	ret
 Bracket		endp
 
-Cal			proc	stdcall xx:dword, cc:byte, yy:dword
+Cal			proc	stdcall xx:real8, cc:byte, yy:real8
 	push	eax
 	push	edi
 
 	.if	cc == '+'
-		invoke	AddInteger, xx, yy
-		mov	eax, result
-		mov	ans, eax
+		invoke	AddFloat, xx, yy
+		fld	fresult
+		fst ans
 	.elseif	cc == '-'
-		invoke	SubInteger, xx, yy
-		mov	eax, result
-		mov ans, eax
+		invoke	SubFloat, xx, yy
+		fld	fresult
+		fst ans
 	.elseif	cc == '*'
-		invoke	MulInteger, xx, yy
-		mov	eax, result
-		mov ans, eax
+		invoke	MulFloat, xx, yy
+		fld	fresult
+		fst ans
 	.elseif	cc == '/'
-		.if yy == 0
-			mov flag, 2
-			pop edi
-			pop eax
-			ret
-		.endif
-		invoke	DivInteger, xx, yy
-		mov eax, result
-		mov ans, eax
+		fld	yy
+		fcom float0
+		fnstsw ax
+		sahf
+		je div0_1
+
+		invoke	DivFloat, xx, yy
+		fld	fresult
+		fst ans
+
+		pop edi
+		pop eax
+		ret
+div0_1: ;div 0
+		mov flag, 2
+		ret
 	.elseif	cc == '%'
-		.if yy == 0
-			mov flag, 2
-			pop edi
-			pop eax
-			ret			
-		.endif
-		invoke	ModInteger, xx, yy
-		mov eax, result
-		mov ans, eax
+		fld	yy
+		fcom float0
+		fnstsw ax
+		sahf
+		je div0_2
+
+		invoke	fmod, xx, yy ;浮点数取模
+		fst ans
+
+		pop edi
+		pop eax
+		ret
+div0_2: ;div 0
+		mov flag, 2
+		ret
 	.elseif cc == '^'
-		mov ans, 1
-		xor edi, edi
-		.while edi < yy
-			invoke	MulInteger, ans, xx
-			mov eax, result
-			mov ans, eax
-			inc edi
-		.endw
+		invoke	pow, xx, yy ;浮点数求幂
+		fst ans
 	.endif
 
 	pop		edi
@@ -283,20 +318,13 @@ Calfun		proc	stdcall
 		ret
 	.endif
 	mov ecx, numtop
-	mov edi, num[ecx * 4]
-	mov sec, edi
-	mov edi, num[ecx * 4 - 4]
-	mov fir, edi
+	fld	num[ecx * 8]
+	fst sec
+	fld num[ecx * 8 - 8]
+	fst fir
 	dec numtop
 	dec numtop
 	mov	ebx, optop
-	.if	op[ebx] == '^' && sec < 0
-		mov flag, 1
-		pop		ebx
-		pop		edi
-		pop		ecx
-		ret
-	.endif
 	invoke	Cal, fir, op[ebx], sec
 	.if	flag == 2
 		pop		ebx
@@ -306,8 +334,8 @@ Calfun		proc	stdcall
 	.endif		
 	inc numtop
 	mov ecx, numtop
-	mov edi, ans
-	mov num[ecx * 4], edi
+	fld	ans
+	fst	num[ecx * 8]
 	dec optop
 
 	pop		ebx

@@ -13,71 +13,85 @@ WinMain	PROTO	:dword, :dword, :dword, :dword
 strcat	PROTO C :ptr sbyte, :ptr sbyte
 strlen	PROTO C :ptr sbyte
 sprintf	PROTO C :ptr sbyte, :vararg
+sscanf	PROTO C :ptr sbyte, :vararg
 
 public	buffer
-public	result
-public	fresult
 extern	flag:dword ;结果类型
-extern	answer:dword ;最终结果
+extern	answer:real8 ;最终结果
+
 Expression		PROTO	stdcall
+SinFloat		PROTO	stdcall:real8
+CosFloat		PROTO	stdcall:real8
+TanFloat		PROTO	stdcall:real8
+Arctan			PROTO	stdcall:real8
+Sqrt			PROTO	stdcall:real8
+Log				PROTO	stdcall:real8
+Fact			PROTO	stdcall:dword
 
 .data
-ClassName			db	"MyCalculator", 0
-AppName				db	"MyCalculator", 0
+	ClassName			db	"MyCalculator", 0
+	AppName				db	"MyCalculator", 0
 
-ButtonClassName		db	"button", 0
-Button1				db	"1", 0
-Button2				db	"2", 0
-Button3				db	"3", 0
-Button4				db	"4", 0
-Button5				db	"5", 0
-Button6				db	"6", 0
-Button7				db	"7", 0
-Button8				db	"8", 0
-Button9				db	"9", 0
-Button0				db  "0", 0
-Buttonadd			db	"+", 0
-Buttonsub			db	"-", 0
-Buttonequ			db  "=", 0
-Buttonmul			db	"*", 0
-Buttondiv			db	"/", 0
-Buttondot			db	".", 0
-Buttonright			db	")", 0
-Buttonleft			db	"(", 0
-Buttonce			db	"CE", 0
-Buttondel			db	"DELETE", 0
-Buttonmod			db	"%", 0
-Buttonsin			db	"sin", 0
-Buttoncos			db	"cos", 0
-Buttontan			db	"tan", 0
-Buttonarc			db	"arctan", 0
-Buttonpi			db	"π", 0
-Buttonfac			db	"n!", 0
-Button2x			db	"x^2", 0
-Buttonsqrt			db	"sqrt(x)", 0
-Buttonlog			db	"log(x)", 0
-Buttonneg			db	"±", 0
-Buttone				db	"e", 0
-Buttonmadd			db	"M+", 0
-Buttonmsub			db	"M-", 0
-Buttonms			db	"MS", 0
+	ButtonClassName		db	"button", 0
+;button define #region
+	Button1				db	"1", 0
+	Button2				db	"2", 0
+	Button3				db	"3", 0
+	Button4				db	"4", 0
+	Button5				db	"5", 0
+	Button6				db	"6", 0
+	Button7				db	"7", 0
+	Button8				db	"8", 0
+	Button9				db	"9", 0
+	Button0				db	"0", 0
+	Buttonadd			db	"+", 0
+	Buttonsub			db	"-", 0
+	Buttonequ			db	"=", 0
+	Buttonmul			db	"*", 0
+	Buttondiv			db	"/", 0
+	Buttondot			db	".", 0
+	Buttonright			db	")", 0
+	Buttonleft			db	"(", 0
+	Buttonce			db	"CE", 0
+	Buttondel			db	"DELETE", 0
+	Buttonmod			db	"%", 0
+	Buttonsin			db	"sin", 0
+	Buttoncos			db	"cos", 0
+	Buttontan			db	"tan", 0
+	Buttonarc			db	"arctan", 0
+	Buttonpi			db	"π", 0
+	Buttonfac			db	"n!", 0
+	Button2x			db	"x^y", 0
+	Buttonsqrt			db	"sqrt(x)", 0
+	Buttonlog			db	"log(x)", 0
+	Buttonneg			db	"±", 0
+	Buttone				db	"e", 0
+	Buttonmadd			db	"M+", 0
+	Buttonmsub			db	"M-", 0
+	Buttonms			db	"MS", 0
+;#endregion
+	errMsg				db	"error", 0
+	div0Msg				db	"Divide 0 error", 0
+	outFmt				db	"%g", 0
+	numFmt				db	"%d", 0
+	outfFmt				db	"%lf", 0
+	negFmt				db	"%s%s", 0
+	EditClassName		db	"edit", 0
+	piMsg				db	"3.1415926", 0
+	eMsg				db	"2.7182818", 0
+	miMsg				db	"^", 0
+	negMsg				db	"-", 0
+	negbuf				db	512 dup(?)
 
-errMsg				db	"error", 0
-div0Msg				db	"Divide 0 error", 0
-outFmt				db	"%d", 0
-result				dword ? ;计算值
-fresult				real8 ? ;计算值
+	hInstance	HINSTANCE	?					;句柄
+	CommandLine	LPSTR		?
+	hwndButton	HWND		?
+	hwndEdit	HWND		?
+	buffer		db			512 dup(?)			;表达式
+	num			dword		?					;阶乘数
 
-EditClassName		db	"edit", 0
-
-hInstance	HINSTANCE	?					;句柄
-CommandLine	LPSTR		?
-hwndButton	HWND		?
-hwndEdit	HWND		?
-buffer		db			512 dup(?)			;表达式
-
-EditID		equ			36
-IDM_GETTEXT equ			37
+	EditID		equ			36
+	IDM_GETTEXT equ			37
 
 ;BUTTONID 1-35#region
 ButtonID1		equ		1
@@ -292,7 +306,6 @@ WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
 							WS_CHILD or WS_VISIBLE or BS_DEFPUSHBUTTON,\
 							353,160,88,50,hWnd,ButtonIDms,hInstance,NULL
 			;#endregion
-			mov  hwndButton,eax
 		.elseif	uMsg==WM_COMMAND
 			mov	eax,wParam
 			.if	lParam==0
@@ -303,6 +316,7 @@ WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
 					invoke	DestroyWindow,hWnd
 				.endif
 			.else
+				;button control #region
 				;显示按钮 
 				.if	ax==ButtonID0
 					shr	eax,16
@@ -434,14 +448,21 @@ WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
 					shr	eax,16
 					.if	ax==BN_CLICKED
 						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttonpi
+						invoke	strcat, offset buffer, offset piMsg
 						invoke	SetWindowText,hwndEdit, ADDR buffer
 					.endif
 				.elseif ax==ButtonIDe
 					shr	eax,16
 					.if	ax==BN_CLICKED
 						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	strcat, offset buffer, offset Buttone
+						invoke	strcat, offset buffer, offset eMsg
+						invoke	SetWindowText,hwndEdit, ADDR buffer
+					.endif
+				.elseif ax==ButtonID2x
+					shr	eax,16
+					.if	ax==BN_CLICKED
+						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+						invoke	strcat, offset buffer, offset miMsg
 						invoke	SetWindowText,hwndEdit, ADDR buffer
 					.endif
 				.elseif ax==ButtonIDce
@@ -457,25 +478,54 @@ WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
 						mov	buffer[eax - 1], 0
 						invoke	SetWindowText,hwndEdit, ADDR buffer
 					.endif
-				;求解按钮
-				.elseif ax==ButtonIDequ
-					shr eax,16
+				.elseif ax==ButtonIDneg
+					shr	eax,16
 					.if	ax==BN_CLICKED
 						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
-						invoke	Expression ;求解函数
-
+						invoke	sprintf, offset negbuf, offset negFmt, offset negMsg, offset buffer
+						invoke	SetWindowText,hwndEdit, ADDR negbuf
+					.endif					
+				;求解按钮
+				.elseif ax==ButtonIDequ || ax==ButtonIDsin || ax==ButtonIDcos || \
+						ax==ButtonIDtan || ax==ButtonIDarc || ax==ButtonIDsqrt || \
+						ax==ButtonIDlog || ax==ButtonIDfac
+					mov bx, ax
+					shr eax,16
+					.if ax==BN_CLICKED
+						invoke	GetWindowText, hwndEdit, ADDR buffer, 512
+						invoke	Expression ;求解函数	
+						
 						.if flag == 1 ;error
 							invoke	SetWindowText, hwndEdit, ADDR errMsg
 						.elseif flag == 2 ;div 0
 							invoke	SetWindowText, hwndEdit, ADDR div0Msg
 						.else ;answer
+							.if	bx==ButtonIDsin ;sin
+								invoke	SinFloat, answer
+							.elseif bx==ButtonIDcos ;cos
+								invoke	CosFloat, answer
+							.elseif	bx==ButtonIDtan ;tan
+								invoke	TanFloat, answer
+							.elseif bx==ButtonIDarc ;arctan
+								invoke	Arctan, answer
+							.elseif	bx==ButtonIDsqrt ;sqrt
+								invoke	Sqrt, answer
+							.elseif	bx==ButtonIDlog ;log10
+								invoke	Log, answer
+							.elseif bx==ButtonIDfac ;fact
+								invoke	sprintf, offset buffer, offset outFmt, answer
+								invoke	sscanf, offset buffer, offset numFmt, offset num
+								invoke	Fact, num
+								mov	num, eax
+								invoke	sprintf, offset buffer, offset numFmt, num
+								invoke	sscanf, offset buffer, offset outfFmt, offset answer
+							.endif
 							invoke	sprintf, offset buffer, offset outFmt, answer
 							invoke	SetWindowText, hwndEdit, ADDR buffer
 						.endif
-
 					.endif
-
 				.endif
+				;#endregion
 			.endif
 		.else 
 			invoke DefWindowProc,hWnd,uMsg,wParam,lParam     ; Default message processing 

@@ -2,6 +2,9 @@
 .model flat, stdcall
 option casemap :none
 
+includelib	msvcrt.lib
+log10	PROTO C :real8
+
 public  AddInteger
 public	SubInteger
 public  MulInteger
@@ -15,8 +18,12 @@ public  SinFloat
 public  CosFloat
 public  TanFloat
 public  Arctan
+public	Sqrt
+public	Log
+public	Fact
 extern	result:dword
 extern	fresult:real8
+extern	answer:real8 ;×îÖÕ½á¹û
 .data
 .code
 
@@ -117,7 +124,7 @@ SinFloat	proc	stdcall a:real8
 			finit
 			fld		a
 			fsin
-			fst		fresult
+			fst		answer
 			ret
 SinFloat	endp
 
@@ -126,7 +133,7 @@ CosFloat	proc	stdcall a:real8
 			finit
 			fld		a
 			fcos
-			fst		fresult
+			fst		answer
 			ret
 CosFloat	endp
 
@@ -135,7 +142,7 @@ TanFloat	proc	stdcall a:real8
 			finit
 			fld		a
 			fptan
-			fst		fresult
+			fst		answer
 			ret
 TanFloat	endp
 
@@ -144,8 +151,40 @@ Arctan		proc	stdcall a:real8
 			finit
 			fld		a
 			fpatan
-			fst		fresult
+			fst		answer
 			ret
 Arctan	endp
+
+;sqrt(a)
+Sqrt		proc	stdcall a:real8
+			finit
+			fld		a
+			fsqrt
+			fst		answer
+			ret
+Sqrt	endp
+
+;log10(a)
+Log			proc	stdcall a:real8
+			finit
+			invoke	log10, a
+			fst		answer
+			ret
+Log		endp
+
+;fact(n)
+Fact		proc	stdcall n:dword
+			cmp		n,1
+			jbe		exitrecurse
+			mov		ebx, n
+			dec		ebx
+			invoke	Fact, ebx
+			imul	n
+			ret
+exitrecurse:
+			mov	eax,1
+			ret
+Fact		endp
+
 			end
 
